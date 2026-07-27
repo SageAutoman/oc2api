@@ -38,7 +38,8 @@ curl https://<你的域名>/
     "/v1/chat/completions",
     "/chat/completions",
     "/v1/models",
-    "/models"
+    "/models",
+    "/ip"
   ]
 }
 ```
