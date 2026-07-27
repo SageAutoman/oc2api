@@ -3,7 +3,7 @@ const PROXY_VERSION = "v1.0.0";
 const ZEN_BASE_URL = "https://opencode.ai";
 const ZEN_URL = `${ZEN_BASE_URL}/zen/v1/chat/completions`;
 const ZEN_MODELS_URL = `${ZEN_BASE_URL}/zen/v1/models`;
-const FETCH_TIMEOUT_MS = 300000;
+const FETCH_TIMEOUT_MS = 5 * 60 * 1000;
 
 const userSessions = new Map();
 let cachedModels = null;
