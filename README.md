@@ -16,6 +16,8 @@ OpenCode API 代理，部署在 Vercel，支持 SSE 流式响应。
 
 你可以反复 Fork 并部署，创建多个出口 IP 不同的项目，然后在 CPA、SUB2API 等工具中配置多个域名实现轮询。
 
+如需本地部署或部署到其他云平台，参见 [server](https://github.com/zhuweiyou/oc2api/tree/server) 分支。
+
 ## API
 
 兼容 OpenAI API 格式，路径均支持带 `/v1` 前缀或不带：
