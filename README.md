@@ -74,3 +74,15 @@ curl https://<你的域名>/v1/models
 ```bash
 curl https://<你的域名>/ip
 ```
+
+## 关于 Codex 的配置
+
+若选择 `deepseek-v4-flash-free` 等支持长上下文的模型，可在 Codex 中配置以下参数充分利用 1M 上下文窗口：
+
+```
+model_auto_compact_token_limit = 900000
+model_context_window = 1000000
+```
+
+- `model_context_window`：模型的最大上下文窗口大小（token），此处设为 1,000,000，即 1M 上下文。
+- `model_auto_compact_token_limit`：当上下文占用超过此阈值时，Codex 会自动触发智能压缩以释放空间，建议设为 900,000（约窗口的 90%）。
