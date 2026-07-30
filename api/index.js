@@ -557,7 +557,7 @@ function stripThinkStreamText(text, state) {
 }
 
 function debugLog(label, payload) {
-	if (!process.env.DEBUG) return;
+	if (process.env.DEBUG !== "true") return;
 	console.log(label, JSON.stringify(payload));
 }
 
