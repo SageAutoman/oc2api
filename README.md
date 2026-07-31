@@ -35,23 +35,27 @@ OpenCode API 代理，部署在 Vercel，支持 SSE 流式响应。
 Authorization: Bearer <api-key>
 ```
 
-## 关于 Codex 的配置
+## 免费模型限制
 
-自定义模型时，Codex 无法识别其上下文窗口大小，默认值可能为 128K。可通过以下两种方式之一解决：
+代理仅放行免费模型（`big-pickle` 及所有以 `-free` 结尾的模型），以 `deepseek-v4-flash-free` 为例：
 
-若选择 `deepseek-v4-flash-free` 等支持长上下文的模型，可在 Codex 中配置以下参数充分利用 1M 上下文窗口：
+```json
+{
+  "id": "deepseek-v4-flash-free",
+  "limit": {
+    "context": 200000,
+    "output": 128000
+  }
+}
+```
 
-- **方式一**：在 CPA、SUB2API 等工具中将自定义模型映射成 GPT-5.5 等官方支持的模型名称，便于工具识别上下文。
-- **方式二**：在 Codex 中手动配置以下参数：
+- `context`：最大上下文窗口，**200,000** tokens
+- `output`：最大单次输出长度，**128,000** tokens
 
-  ```
-  model_context_window = 1000000
-  model_auto_compact_token_limit = 900000
-  ```
+以上限制数据来源于接口 [https://models.opencode.ai/api.json](https://models.opencode.ai/api.json)（`opencode` 目录下对应模型的 `limit` 字段），可自行查看核实。
 
-    - `model_context_window`：模型的最大上下文窗口大小（token），此处设为 1,000,000，即 1M 上下文。
-    - `model_auto_compact_token_limit`：当上下文占用超过此阈值时，Codex 会自动触发智能压缩以释放空间，建议设为 900,000（约窗口的
-      90%）。
+**注意**：未实测实际能否超过 200K，以实际使用为准。
 
-配置完成后，发任意消息（如 `hello`）验证能否正常回复，再用 `/status` 查看 `Model provider`、`Context window`、`Token usage`
-是否生效。
+## 推理强度（reasoning_effort）
+
+推理强度处理：DeepSeek 模型仅接受 `high` / `max`，两者原样透传；其他值（包括未指定）都会被强制为 `max`。

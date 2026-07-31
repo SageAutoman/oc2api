@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	ProxyVersion   = "v1.0.0"
+	ProxyVersion   = "v1.1.0"
 	OCVersion      = "1.15.13"
 	ZenBaseURL     = "https://opencode.ai"
 	ZenURL         = ZenBaseURL + "/zen/v1/chat/completions"
