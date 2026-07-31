@@ -16,7 +16,7 @@ OpenCode API 代理，部署在 Vercel，支持 SSE 流式响应。
 
 部署完成后会得到一个 `https://<项目名>.vercel.app` 的域名。
 
-你可以反复 Fork 并部署，创建多个出口 IP 不同的项目，然后在 CPA、SUB2API 等工具中配置多个域名实现轮询。
+你可以 Fork 后部署多个 Vercel Project，创建多个出口 IP 不同的项目，然后在 CPA、SUB2API 等工具中配置多个域名实现轮询。
 
 ## API
 
@@ -52,9 +52,7 @@ Authorization: Bearer <api-key>
 - `context`：最大上下文窗口，**200,000** tokens
 - `output`：最大单次输出长度，**128,000** tokens
 
-以上限制数据来源于接口 [https://models.opencode.ai/api.json](https://models.opencode.ai/api.json)（`opencode` 目录下对应模型的 `limit` 字段），可自行查看核实。
-
-**注意**：未实测实际能否超过 200K，以实际使用为准。
+以上限制数据来源于接口 [https://models.opencode.ai/api.json](https://models.opencode.ai/api.json)（`opencode` key 下对应模型的 `limit` 字段），可自行查看核实，以实际使用为准。
 
 ## 推理强度（reasoning_effort）
 

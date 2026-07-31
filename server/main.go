@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -22,7 +23,7 @@ import (
 )
 
 const (
-	ProxyVersion   = "v1.1.0"
+	ProxyVersion   = "v1.2.0"
 	OCVersion      = "1.15.13"
 	ZenBaseURL     = "https://opencode.ai"
 	ZenURL         = ZenBaseURL + "/zen/v1/chat/completions"
@@ -749,14 +750,11 @@ func (n *streamNormalizer) normalize(chunk map[string]interface{}) map[string]in
 
 	choices, ok := chunk["choices"].([]interface{})
 	if !ok {
-		return chunk
+		return nil
 	}
 
-	if len(choices) == 0 {
-		if chunk["cost"] != nil {
-			return nil
-		}
-		return chunk
+	if len(choices) == 0 && chunk["cost"] != nil {
+		return nil
 	}
 
 	next := deepCopy(chunk).(map[string]interface{})
@@ -913,7 +911,11 @@ func OpenAIFullResponse(w http.ResponseWriter, upstream *http.Response, requestI
 		return
 	}
 
-	w.Header().Set("Content-Type", upstream.Header.Get("Content-Type")+"; charset=utf-8")
+	contentType := upstream.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/json; charset=utf-8"
+	}
+	w.Header().Set("Content-Type", contentType)
 	for k, v := range CORSHeaders {
 		w.Header().Set(k, v)
 	}
@@ -952,7 +954,6 @@ func OpenAIStreamResponse(w http.ResponseWriter, r *http.Request, upstream *http
 	}
 
 	normalizer := newStreamNormalizer()
-	firstChunk := true
 	doneSent := false
 
 	sendSSE := func(data interface{}) {
@@ -987,17 +988,6 @@ func OpenAIStreamResponse(w http.ResponseWriter, r *http.Request, upstream *http
 			return
 		}
 
-		if firstChunk {
-			firstChunk = false
-			zenErr := parseZenError(payload)
-			logUpstreamBody(env, requestId, model, upstream.StatusCode, payload, zenErr, true)
-			if zenErr != nil {
-				writeOpenAIError(w, zenErr.Message+" (free model rate limit)", "rate_limit_error",
-					http.StatusTooManyRequests, "rate_limit_exceeded")
-				return
-			}
-		}
-
 		normalized := normalizer.normalize(parsed)
 		if normalized != nil {
 			sendSSE(normalized)
@@ -1009,6 +999,8 @@ func OpenAIStreamResponse(w http.ResponseWriter, r *http.Request, upstream *http
 	}
 
 	scanner := bufio.NewScanner(peeker)
+	buffer := make([]byte, 0, 64*1024)
+	scanner.Buffer(buffer, 64*1024*1024)
 	for scanner.Scan() {
 		processLine(scanner.Text())
 		if r.Context().Err() != nil {
@@ -1044,6 +1036,7 @@ func formatMsgSummary(messages []interface{}) string {
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
+		SetCORSHeaders(w)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -1070,24 +1063,63 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		JSONResponse(w, map[string]interface{}{"error": map[string]interface{}{"message": "Not found"}}, http.StatusNotFound)
 }
 }
+var ipv4Regex = regexp.MustCompile(`\b\d{1,3}(?:\.\d{1,3}){3}\b`)
+
+var ipProviders = []string{
+	"https://api.ipquery.io",
+	"http://ip-api.com/json",
+}
+
 func IPResponse(w http.ResponseWriter, r *http.Request) {
+	type result struct {
+		ip     string
+		source string
+	}
+	results := make(chan result, len(ipProviders))
+	for _, url := range ipProviders {
+		url := url
+		go func() {
+			results <- fetchIPFrom(url)
+		}()
+	}
+
+	for range ipProviders {
+		res := <-results
+		if res.ip != "" {
+			JSONResponse(w, map[string]interface{}{
+				"ip":     res.ip,
+				"source": res.source,
+			}, http.StatusOK)
+			return
+		}
+	}
+	writeUpstreamError(w, fmt.Errorf("all IP providers failed"))
+}
+
+func fetchIPFrom(url string) (result struct {
+	ip     string
+	source string
+}) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get("https://api.ipquery.io")
+	resp, err := client.Get(url)
 	if err != nil {
-		writeUpstreamError(w, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		writeUpstreamError(w, err)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(resp.StatusCode)
-	w.Write(body)
+	if m := ipv4Regex.FindString(string(body)); m != "" && net.ParseIP(m) != nil && net.ParseIP(m).To4() != nil {
+		result.ip = m
+		result.source = url
+	}
+	return
 }
 
 func HealthResponse(w http.ResponseWriter) {

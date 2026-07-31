@@ -1,5 +1,5 @@
 const OC_VERSION = "1.15.13";
-const PROXY_VERSION = "v1.1.0";
+const PROXY_VERSION = "v1.2.0";
 const ZEN_BASE_URL = "https://opencode.ai";
 const ZEN_URL = `${ZEN_BASE_URL}/zen/v1/chat/completions`;
 const ZEN_MODELS_URL = `${ZEN_BASE_URL}/zen/v1/models`;
@@ -176,17 +176,53 @@ async function handleOpenAI(request) {
 	return openAIFullResponse(upstream, requestId, model);
 }
 
+const IP_PROVIDERS = [
+	"https://api.ipquery.io",
+	"http://ip-api.com/json",
+];
+
+const IPV4_REGEX = /\b\d{1,3}(?:\.\d{1,3}){3}\b/;
+
 async function ipResponse() {
-	try {
-		const response = await fetch("https://api.ipquery.io");
-		const data = await response.text();
-		return new Response(data, {
-			status: response.status,
-			headers: mergeHeaders({ "Content-Type": "application/json; charset=utf-8" }),
-		});
-	} catch (error) {
-		return upstreamErrorResponse(error);
+	const results = await Promise.allSettled(
+		IP_PROVIDERS.map((url) => fetchIPFrom(url))
+	);
+
+	for (const result of results) {
+		if (result.status === "fulfilled" && result.value) {
+			return jsonResponse({ ip: result.value.ip, source: result.value.source });
+		}
 	}
+
+	return upstreamErrorResponse(new Error("all IP providers failed"));
+}
+
+async function fetchIPFrom(url) {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort("timeout"), 10 * 1000);
+
+	try {
+		const response = await fetch(url, { signal: controller.signal });
+		if (!response.ok) return null;
+
+		const body = await response.text();
+		const match = IPV4_REGEX.exec(body);
+		const ip = match ? match[0] : "";
+		if (!isValidIPv4(ip)) return null;
+
+		return { ip, source: url };
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+function isValidIPv4(ip) {
+	if (typeof ip !== "string" || !ip) return false;
+	const parts = ip.split(".");
+	if (parts.length !== 4) return false;
+	return parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255);
 }
 
 function healthResponse() {
