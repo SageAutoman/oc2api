@@ -26,7 +26,7 @@ OpenCode API 代理，部署在 Vercel，支持 SSE 流式响应。
 |----------------------------------------------|------|-------------------------------|
 | `/v1/chat/completions` 或 `/chat/completions` | POST | Chat 补全（支持 `stream: true` 流式） |
 | `/v1/models` 或 `/models`                     | GET  | 模型列表                          |
-| `/health`                                    | GET  | 健康检查                          |
+| `/` 或 `/health`                             | GET  | 健康检查                          |
 | `/ip`                                        | GET  | 查询出口 IP                       |
 
 携带 API Key（如已配置）：
