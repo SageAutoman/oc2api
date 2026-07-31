@@ -2,3 +2,4 @@
 node_modules
 .idea
 oc2api
+.env*

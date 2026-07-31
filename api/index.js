@@ -151,6 +151,7 @@ async function handleOpenAI(request) {
 	if (input.error) return input.error;
 
 	const { model, messages, stream, tools, tool_choice } = input.body;
+	const reasoningEffort = input.body.reasoning_effort ?? input.body.reasoningEffort;
 
 	const sessionId = getSession(auth.user);
 	const msgSummary = (messages || []).map((msg) => ({
@@ -160,7 +161,7 @@ async function handleOpenAI(request) {
 	console.log("[OAI]", new Date().toISOString(), auth.user, model, stream ? "stream" : "sync", "msgs:", JSON.stringify(msgSummary));
 
 	const transformedMessages = injectReasoningContent(model, messages);
-	const zenReq = buildZenRequest(model, transformedMessages, stream, tools, tool_choice, sessionId);
+	const zenReq = buildZenRequest(model, transformedMessages, stream, tools, tool_choice, reasoningEffort, sessionId);
 	logZenRequest(requestId, "openai", model, stream, auth.user, zenReq, messages?.length || 0);
 
 	let upstream;
@@ -280,8 +281,12 @@ function injectReasoningContent(model, messages) {
 	return next;
 }
 
-function buildZenRequest(model, messages, stream, tools, toolChoice, sessionId) {
+function buildZenRequest(model, messages, stream, tools, toolChoice, reasoningEffort, sessionId) {
 	const reqBody = { model, messages, stream: !!stream };
+	if (deepSeekRegex.test(model)) {
+		if (reasoningEffort !== "high" && reasoningEffort !== "max") reasoningEffort = "max";
+		reqBody.reasoning_effort = reasoningEffort;
+	}
 	if (tools?.length) reqBody.tools = tools;
 	if (toolChoice) reqBody.tool_choice = toolChoice;
 

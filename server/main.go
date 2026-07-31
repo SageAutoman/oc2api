@@ -541,11 +541,17 @@ func injectReasoningContent(model string, body map[string]interface{}) map[strin
 
 var deepSeekRegex = regexp.MustCompile(`(?i)deepseek`)
 
-func buildZenRequest(model string, messages, tools []interface{}, toolChoice interface{}, sessionId string, stream bool) *zenRequest {
+func buildZenRequest(model string, messages, tools []interface{}, toolChoice interface{}, reasoningEffort, sessionId string, stream bool) *zenRequest {
 	body := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
 		"stream":   stream,
+	}
+	if deepSeekRegex.MatchString(model) {
+		if reasoningEffort != "high" && reasoningEffort != "max" {
+			reasoningEffort = "max"
+		}
+		body["reasoning_effort"] = reasoningEffort
 	}
 	if len(tools) > 0 {
 		body["tools"] = tools
@@ -837,6 +843,10 @@ func HandleOpenAI(w http.ResponseWriter, r *http.Request, env string) {
 	}
 	tools, _ := input.Body["tools"].([]interface{})
 	toolChoice := input.Body["tool_choice"]
+	reasoningEffort := getString(input.Body["reasoning_effort"], "")
+	if reasoningEffort == "" {
+		reasoningEffort = getString(input.Body["reasoningEffort"], "")
+	}
 
 	sessionId := getSession(user)
 
@@ -847,7 +857,7 @@ func HandleOpenAI(w http.ResponseWriter, r *http.Request, env string) {
 	log.Println("[OAI]", time.Now().UTC().Format(time.RFC3339), user, model,
 		map[bool]string{true: "stream", false: "sync"}[stream], "msgs:", msgSummary)
 
-	zenReq := buildZenRequest(model, transformedMessages, tools, toolChoice, sessionId, stream)
+	zenReq := buildZenRequest(model, transformedMessages, tools, toolChoice, reasoningEffort, sessionId, stream)
 	logZenRequest(requestId, "openai", model, stream, user, zenReq, len(messages))
 
 	ctx, cancel := context.WithTimeout(r.Context(), ResolveTimeout(Cfg))
