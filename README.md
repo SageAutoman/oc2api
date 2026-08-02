@@ -16,7 +16,7 @@ OpenCode API 代理，部署在 Vercel，支持 SSE 流式响应。
 
 部署完成后会得到一个 `https://<项目名>.vercel.app` 的域名。
 
-你可以 Fork 后部署多个 Vercel Project，创建多个出口 IP 不同的项目，然后在 CPA、SUB2API 等工具中配置多个域名实现轮询。
+你可以 Fork 后部署多个 Vercel Project，创建多个出口 IP 不同的项目，然后在 [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI/blob/main/README_CN.md#%E5%8A%9F%E8%83%BD%E7%89%B9%E6%80%A7)、[Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 等工具中配置多个域名实现轮询。
 
 ## API
 
