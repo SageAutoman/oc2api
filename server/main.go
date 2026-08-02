@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	ProxyVersion   = "v1.2.0"
+	ProxyVersion   = "v1.3.0"
 	OCVersion      = "1.15.13"
 	ZenBaseURL     = "https://opencode.ai"
 	ZenURL         = ZenBaseURL + "/zen/v1/chat/completions"
@@ -858,10 +858,7 @@ func HandleOpenAI(w http.ResponseWriter, r *http.Request, env string) {
 	zenReq := buildZenRequest(model, transformedMessages, tools, toolChoice, reasoningEffort, sessionId, stream)
 	logZenRequest(requestId, "openai", model, stream, user, zenReq, len(messages))
 
-	ctx, cancel := context.WithTimeout(r.Context(), ResolveTimeout(Cfg))
-	defer cancel()
-
-	upstream, err := fetchZen(ctx, zenReq)
+	upstream, err := fetchZen(r.Context(), zenReq)
 	if err != nil {
 		debugLog("[ZEN FETCH ERROR]", map[string]interface{}{
 			"requestId": requestId, "model": model, "stream": stream,
@@ -929,9 +926,13 @@ func OpenAIStreamResponse(w http.ResponseWriter, r *http.Request, upstream *http
 		return
 	}
 
-	peeker := bufio.NewReader(upstream.Body)
-	firstLine, _, _ := peeker.ReadLine()
-	firstText := string(firstLine)
+	peeker := bufio.NewReaderSize(upstream.Body, 64*1024)
+	firstText, err := peeker.ReadString('\n') // 跨大行不截断
+	if err != nil && firstText == "" {        // EOF 且无任何字节 → 空 body
+		writeOpenAIError(w, "Empty response from upstream", "upstream_error", http.StatusBadGateway, "")
+		return
+	}
+	firstText = strings.TrimRight(firstText, "\n")
 
 	zenErr := parseZenError(firstText)
 	if upstream.StatusCode == http.StatusTooManyRequests || zenErr != nil {
@@ -946,7 +947,7 @@ func OpenAIStreamResponse(w http.ResponseWriter, r *http.Request, upstream *http
 	}
 
 	SetSSEHeaders(w)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(upstream.StatusCode)
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -1176,12 +1177,18 @@ func ResolveTimeout(cfg *Config) time.Duration {
 }
 
 func newZenHTTPClient() *http.Client {
-	return &http.Client{Timeout: ResolveTimeout(Cfg)}
+	// ResponseHeaderTimeout 覆盖「连接 + 等待响应头」，等价于 JS 的 FETCH_TIMEOUT_MS；
+	// 不设整体 Timeout，避免长流被硬切（body 流式读取无时长上限）。
+	return &http.Client{
+		Transport: &http.Transport{ResponseHeaderTimeout: ResolveTimeout(Cfg)},
+	}
 }
 
 func main() {
 	log.SetOutput(os.Stdout)
 	Cfg = LoadConfig()
+	// 包变量区初始化时 Cfg 还是 nil，这里重建 client 让 timeout-ms 生效
+	zenHTTPClient = newZenHTTPClient()
 
 	go sessionCleanupLoop()
 
@@ -1201,7 +1208,7 @@ func main() {
 		Addr:              ":" + port,
 		Handler:           mux,
 		ReadTimeout:       ResolveTimeout(Cfg),
-		WriteTimeout:      ResolveTimeout(Cfg),
+		WriteTimeout:      0, // 关闭写超时，SSE 长流不被切
 		IdleTimeout:       ResolveTimeout(Cfg),
 		ReadHeaderTimeout: ResolveTimeout(Cfg),
 	}
