@@ -62,4 +62,4 @@ Authorization: Bearer <api-key>
 
 ## 推理强度（reasoning_effort）
 
-目前 `reasoning_effort` 仅对 DeepSeek 模型生效：DeepSeek 只接受 `high` / `max`，两者原样透传，其余值（包括未指定）会被强制为 `max`；其他模型不处理该参数，保持默认值。
+目前 `reasoning_effort` 仅对 DeepSeek 模型生效：DeepSeek 只接受 `high` / `max`，两者原样透传，其余值（包括未指定）会被强制为 `high`；其他模型不处理该参数，保持默认值。

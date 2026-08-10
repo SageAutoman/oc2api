@@ -550,7 +550,7 @@ func buildZenRequest(model string, messages, tools []interface{}, toolChoice int
 	}
 	if deepSeekRegex.MatchString(model) {
 		if reasoningEffort != "high" && reasoningEffort != "max" {
-			reasoningEffort = "max"
+			reasoningEffort = "high"
 		}
 		body["reasoning_effort"] = reasoningEffort
 	}

@@ -320,7 +320,7 @@ function injectReasoningContent(model, messages) {
 function buildZenRequest(model, messages, stream, tools, toolChoice, reasoningEffort, sessionId) {
 	const reqBody = { model, messages, stream: !!stream };
 	if (deepSeekRegex.test(model)) {
-		if (reasoningEffort !== "high" && reasoningEffort !== "max") reasoningEffort = "max";
+		if (reasoningEffort !== "high" && reasoningEffort !== "max") reasoningEffort = "high";
 		reqBody.reasoning_effort = reasoningEffort;
 	}
 	if (tools?.length) reqBody.tools = tools;
